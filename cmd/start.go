@@ -2,21 +2,21 @@ package cmd
 
 import (
 	"context"
-	"github.com/redis/go-redis/v9"
-	"github.com/vaishakdinesh/tiny-url-svc/pkg/url"
-	"go.mongodb.org/mongo-driver/mongo"
 	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	"github.com/labstack/echo/v4"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/vaishakdinesh/tiny-url-svc/pkg/apis/rest_v0"
 	"github.com/vaishakdinesh/tiny-url-svc/pkg/db"
+	"github.com/vaishakdinesh/tiny-url-svc/pkg/url"
 	"github.com/vaishakdinesh/tiny-url-svc/types"
 )
 

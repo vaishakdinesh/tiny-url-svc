@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/labstack/echo/v4"
-	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 	"net/http"
 	"time"
+
+	"go.uber.org/zap"
+
+	"github.com/labstack/echo/v4"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/vaishakdinesh/tiny-url-svc/types"
 	v0 "github.com/vaishakdinesh/tiny-url-svc/types/api/rest/v0"

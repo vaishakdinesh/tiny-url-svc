@@ -2,9 +2,11 @@ package db
 
 import (
 	"context"
-	"github.com/vaishakdinesh/tiny-url-svc/types"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+
+	"github.com/vaishakdinesh/tiny-url-svc/types"
 )
 
 type repo struct {

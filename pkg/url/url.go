@@ -3,8 +3,6 @@ package url
 import (
 	"context"
 	"fmt"
-	"github.com/vaishakdinesh/tiny-url-svc/types"
-	"go.uber.org/zap"
 	"math/big"
 	"math/rand/v2"
 	"net"
@@ -12,6 +10,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
+
+	"github.com/vaishakdinesh/tiny-url-svc/types"
 )
 
 const (
