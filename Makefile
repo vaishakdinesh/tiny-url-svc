@@ -1,0 +1,38 @@
+.PHONY: tidy build
+
+MONGODB_VERSION		:= 6.0-ubi8
+REDIS_VERSION       := 7.2.0-v9
+SCHEMA_ROOT			:= schema
+REST_SCHEMA_ROOT	:= $(SCHEMA_ROOT)/rest
+
+TINY_URL_SCHEMA		:= $(REST_SCHEMA_ROOT)/v0/url-svc.yaml
+TINY_URL_ROOT_V0	:= types/api/rest/v0
+
+TINY_URL_SEVER		:= $(TINY_URL_ROOT_V0)/server.gen.go
+TINY_URL_MODEL		:= $(TINY_URL_ROOT_V0)/model.gen.go
+TINY_URL_SPEC		:= $(TINY_URL_ROOT_V0)/spec.gen.go
+
+OAPICODEGEN		:= $(GOPATH)/bin/oapi-codegen
+
+GENERATE_MODELS := ${OAPICODEGEN} -generate types,skip-prune
+GENERATE_SERVER := ${OAPICODEGEN} -generate server,skip-prune
+GENERATE_SPEC	:= ${OAPICODEGEN} -generate spec,skip-prune
+
+GENERATE_LIST	:= $(TINY_URL_SEVER) $(TINY_URL_MODEL) $(TINY_URL_SPEC)
+
+$(TINY_URL_ROOT_V0)/model.gen.go: $(TINY_URL_SCHEMA)
+	${GENERATE_MODELS} -package v0 $< > $@
+
+$(TINY_URL_ROOT_V0)/server.gen.go: $(TINY_URL_SCHEMA)
+	${GENERATE_SERVER} -package v0 $< > $@
+
+$(TINY_URL_ROOT_V0)/spec.gen.go: $(TINY_URL_SCHEMA)
+	${GENERATE_SPEC} -package v0 $< > $@
+
+generate: ${GENERATE_LIST}
+
+tidy:
+	go mod tidy
+
+build:
+	go build .
