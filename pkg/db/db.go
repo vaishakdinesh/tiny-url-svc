@@ -11,5 +11,5 @@ import (
 
 // TODO:: config
 func NewDB(ctx context.Context, l *zap.Logger) (*mongo.Client, error) {
-	return mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+	return mongo.Connect(ctx, options.Client().ApplyURI("mongodb://root:root@mongodb:27017"))
 }

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"github.com/redis/go-redis/v9"
 	"github.com/vaishakdinesh/tiny-url-svc/pkg/url"
 	"go.mongodb.org/mongo-driver/mongo"
 	"net/http"
@@ -42,12 +43,25 @@ func Run() {
 		}
 	}()
 
+	// TODO:: from config
+	opt, err := redis.ParseURL("redis://tsvc:tsvcPassword@redis:6379/0")
+	if err != nil {
+		logger.Fatal("failed parse redis url", zap.Error(err))
+	}
+
+	redisClient := redis.NewClient(opt)
+	defer func() {
+		if err = redisClient.Close(); err != nil {
+			logger.Fatal("failed to close redis cache", zap.Error(err))
+		}
+	}()
+
 	server, err := newServer()
 	if err != nil {
 		logger.Fatal("failed to create a new server", zap.Error(err))
 	}
 
-	apis, err := initHandlers(logger, dbClient)
+	apis, err := initHandlers(logger, dbClient, redisClient)
 	if err != nil {
 		logger.Fatal("failed to init rest handlers", zap.Error(err))
 	}
@@ -75,9 +89,9 @@ func newServer() (*types.Server, error) {
 	return s, nil
 }
 
-func initHandlers(l *zap.Logger, c *mongo.Client) ([]types.Registerer, error) {
+func initHandlers(l *zap.Logger, c *mongo.Client, r *redis.Client) ([]types.Registerer, error) {
 	urlSvc := url.NewTinyURLService(l, db.NewURLRepo(c))
-	tinyURLV0, err := rest_v0.NewHandler(l, urlSvc)
+	tinyURLV0, err := rest_v0.NewHandler(l, urlSvc, r)
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,7 @@ import "errors"
 
 var (
 	InternalServerError = 99
+	InputError          = 100
 	ValidationError     = 101
 	NoRouteError        = 102
 

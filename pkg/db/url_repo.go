@@ -16,7 +16,7 @@ func NewURLRepo(c *mongo.Client) types.URLRepo {
 }
 
 func (r *repo) Put(ctx context.Context, key string, document types.URLDocument) error {
-	collection := r.client.Database("tiny-url").Collection("urls")
+	collection := r.client.Database("tiny-url").Collection("tiny_urls")
 	_, err := collection.InsertOne(ctx, bson.D{
 		{key, document},
 	})
@@ -24,7 +24,7 @@ func (r *repo) Put(ctx context.Context, key string, document types.URLDocument) 
 }
 
 func (r *repo) Delete(ctx context.Context, key string) error {
-	collection := r.client.Database("tiny-url").Collection("urls")
+	collection := r.client.Database("tiny-url").Collection("tiny_urls")
 	_, err := collection.DeleteOne(ctx, key)
 	return err
 

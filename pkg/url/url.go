@@ -9,6 +9,7 @@ import (
 	"math/rand/v2"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -43,6 +44,7 @@ func (u *urlSVC) GenerateTinyURL(ctx context.Context, longUrl string) (types.URL
 		u.l.Error("failed to store url", zap.Error(err))
 		return types.URLDocument{}, err
 	}
+	u.l.Info("added url to db", zap.String(longUrl, strconv.FormatInt(tinyURL.ID, 10)))
 	return tinyURL, nil
 }
 
