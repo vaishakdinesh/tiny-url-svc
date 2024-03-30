@@ -1,0 +1,50 @@
+version: "3.8"
+services:
+  tiny-url-svc:
+    image: "tiny-url-svc:${BRANCH}"
+    depends_on:
+      - mongodb
+      - redis
+    ports:
+      - "8000:8000"
+    volumes:
+      - "/tmp/log:/var/log/tiny-url-svc"
+    networks:
+      - tiny-url-network
+    restart: always
+  mongodb:
+    image: mongodb/mongodb-community-server:6.0-ubi8
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: tiny_url
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tiny-url-network
+    restart: always
+  redis:
+    image: redis/redis-stack-server:7.2.0-v9
+    ports:
+      - "6379:6379"
+    environment:
+      REDIS_ARGS: "--requirepass tsvcPassword --user tsvc on >tsvcPassword ~* allcommands --user default off nopass nocommands"
+    healthcheck:
+        test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+    volumes:
+        - redis_data:/data
+    networks:
+      - tiny-url-network
+networks:
+  tiny-url-network:
+    driver: bridge
+volumes:
+  mongodb_data:
+  redis_data:

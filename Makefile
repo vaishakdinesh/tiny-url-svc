@@ -1,7 +1,10 @@
-.PHONY: tidy build
+.PHONY: tidy build up down image
 
 MONGODB_VERSION		:= 6.0-ubi8
 REDIS_VERSION       := 7.2.0-v9
+BRANCH=$(shell bash ./scripts/branch.sh)
+export BRANCH
+
 SCHEMA_ROOT			:= schema
 REST_SCHEMA_ROOT	:= $(SCHEMA_ROOT)/rest
 
@@ -36,3 +39,12 @@ tidy:
 
 build:
 	go build .
+
+up: image
+	docker compose -f docker/docker-compose.yaml up -d
+
+down:
+	docker compose -f docker/docker-compose.yaml down -v
+
+image:
+	docker build -f docker/Dockerfile -t tiny-url-svc:${BRANCH} .
