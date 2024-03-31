@@ -7,7 +7,7 @@ info:
     email: vaishakpdinesh@gmail.com
   version: v0.0
 servers:
-  - url: /api/v0
+  - url: /tinyurlsvc
 paths:
   /generate:
     post:
@@ -28,6 +28,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenerateURLResponse'
+  /{urlKey}:
+    parameters:
+      - name: urlKey
+        in: path
+        description: key generated for the long url
+        required: true
+        schema:
+          type: string
+          example: 2AYAhB
+    get:
+      summary: redirects to long url.
+      description: redirects the client to the long url.
+      operationId: GetURL
+      responses:
+        '302':
+          description: successfully redirects to the long url.
+        '404':
+          description: url not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+    delete:
+      summary: Deletes a tiny url
+      description: Deletes a tiny url generated for a long url
+      operationId: DeleteURL
+      responses:
+        '204':
+          description: successfully deletes a tiny url
+        '404':
+          description: url not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
 
 components:
   schemas:
