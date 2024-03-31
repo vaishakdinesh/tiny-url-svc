@@ -4,7 +4,11 @@
 package v0
 
 import (
+	"fmt"
+	"net/http"
+
 	"github.com/labstack/echo/v4"
+	"github.com/oapi-codegen/runtime"
 )
 
 // ServerInterface represents all server handlers.
@@ -12,6 +16,12 @@ type ServerInterface interface {
 	// Generate a tiny url
 	// (POST /generate)
 	GenerateURL(ctx echo.Context) error
+	// Deletes a tiny url
+	// (DELETE /{urlKey})
+	DeleteURL(ctx echo.Context, urlKey string) error
+	// redirects to long url.
+	// (GET /{urlKey})
+	GetURL(ctx echo.Context, urlKey string) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -25,6 +35,38 @@ func (w *ServerInterfaceWrapper) GenerateURL(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.GenerateURL(ctx)
+	return err
+}
+
+// DeleteURL converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteURL(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "urlKey" -------------
+	var urlKey string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "urlKey", runtime.ParamLocationPath, ctx.Param("urlKey"), &urlKey)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter urlKey: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteURL(ctx, urlKey)
+	return err
+}
+
+// GetURL converts echo context to params.
+func (w *ServerInterfaceWrapper) GetURL(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "urlKey" -------------
+	var urlKey string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "urlKey", runtime.ParamLocationPath, ctx.Param("urlKey"), &urlKey)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter urlKey: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetURL(ctx, urlKey)
 	return err
 }
 
@@ -57,5 +99,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.POST(baseURL+"/generate", wrapper.GenerateURL)
+	router.DELETE(baseURL+"/:urlKey", wrapper.DeleteURL)
+	router.GET(baseURL+"/:urlKey", wrapper.GetURL)
 
 }
