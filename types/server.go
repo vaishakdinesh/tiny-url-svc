@@ -51,13 +51,7 @@ type (
 	}
 )
 
-var (
-	emptySpecError    = errors.New("empty oas spec")
-	IntServerAPIError = &APIError{
-		Code:    InternalServerError,
-		Message: ErrInternalServer.Error(),
-	}
-)
+var emptySpecError = errors.New("empty oas spec")
 
 func (ae *APIError) Error() string {
 	return ae.Message
