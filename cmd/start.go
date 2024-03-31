@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"github.com/vaishakdinesh/tiny-url-svc/pkg/cache"
 	"net/http"
 	"os"
 	"os/signal"
@@ -90,8 +91,9 @@ func newServer() (*types.Server, error) {
 }
 
 func initHandlers(l *zap.Logger, c *mongo.Client, r *redis.Client) ([]types.Registerer, error) {
-	urlSvc := url.NewTinyURLService(l, db.NewURLRepo(c))
-	tinyURLV0, err := rest_v0.NewHandler(l, urlSvc, r)
+	cacheSvc := cache.NewCacheService(r)
+	urlSvc := url.NewTinyURLService(l, db.NewURLRepo(c), cacheSvc)
+	tinyURLV0, err := rest_v0.NewHandler(l, urlSvc)
 	if err != nil {
 		return nil, err
 	}
