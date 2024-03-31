@@ -14,10 +14,9 @@ WORKDIR /app
 # Copy the code into the container
 COPY . .
 
+ENV GOCACHE=/root/.cache/go-build
 # Build the application
-RUN go mod tidy
-RUN go mod vendor
-RUN go build -o ${APP_NAME}
+RUN --mount=type=cache,target="/root/.cache/go-build" go build -mod vendor -o ${APP_NAME}
 
 # Move to /dist directory as the place for resulting binary folder
 WORKDIR /dist

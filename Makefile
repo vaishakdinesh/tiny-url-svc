@@ -1,4 +1,4 @@
-.PHONY: tidy build up down image
+.PHONY: tidy build up down image vendor
 
 MONGODB_VERSION		:= 6.0-ubi8
 REDIS_VERSION       := 7.2.0-v9
@@ -40,7 +40,7 @@ tidy:
 build:
 	go build .
 
-up: image
+up: vendor image
 	docker compose -f docker/docker-compose.yaml up -d
 
 down:
@@ -48,3 +48,6 @@ down:
 
 image:
 	docker build -f docker/Dockerfile -t tiny-url-svc:${BRANCH} .
+
+vendor:
+	go mod vendor
