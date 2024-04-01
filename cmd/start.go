@@ -90,8 +90,8 @@ func newServer() (*types.Server, error) {
 
 func initHandlers(l *zap.Logger, c *mongo.Client, r *redis.Client) ([]types.Registerer, error) {
 	cacheSvc := cache.NewCacheService(r)
-	urlSvc, err := url.NewTinyURLService(l, db.NewURLRepo(c), cacheSvc)
-	if err != nil {
+	urlSvc := url.NewTinyURLService(l, db.NewURLRepo(c), cacheSvc)
+	if err := urlSvc.RegisterProm(); err != nil {
 		return nil, err
 	}
 	tinyURLV0, err := rest_v0.NewHandler(l, urlSvc)

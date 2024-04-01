@@ -5,6 +5,7 @@ import (
 	"errors"
 	"go.uber.org/zap"
 	"net/http"
+	"net/url"
 
 	"github.com/labstack/echo/v4"
 
@@ -45,32 +46,29 @@ func (h *handler) Register(s *types.Server) {
 func (h *handler) GenerateURL(ctx echo.Context) error {
 	genURLReq, err := decodeRequest(ctx)
 	if err != nil {
-		h.l.Error("failed to decode request", zap.Error(err))
 		return ctx.JSON(http.StatusBadRequest, &types.APIError{
 			Code:    types.InputError,
 			Message: err.Error(),
 		})
 	}
 
-	tinyURL, err := h.svc.GenerateTinyURL(ctx.Request().Context(), genURLReq.Url)
+	tinyURL, err := h.svc.GenerateTinyURL(ctx.Request().Context(), genURLReq.Url, genURLReq.LiveForever)
 	if err != nil {
-		h.l.Error("failed to generate tiny url", zap.Error(err))
 		return ctx.JSON(http.StatusInternalServerError, &types.APIError{
 			Code:    types.InternalServerError,
 			Message: err.Error(),
 		})
 	}
-
-	return ctx.JSON(http.StatusOK, &v0.GenerateURLResponse{
-		ExpireTime:       tinyURL.ExpireTime.String(),
-		GeneratedTinyURL: tinyURL.ToURL(ctx),
-	})
+	response := &v0.GenerateURLResponse{GeneratedTinyURL: tinyURL.ToURL(ctx)}
+	if !tinyURL.ExpireTime.IsZero() {
+		response.ExpireTime = stringPtr(tinyURL.ExpireTime.String())
+	}
+	return ctx.JSON(http.StatusCreated, response)
 }
 
 func (h *handler) GetURL(ctx echo.Context, urlKey string) error {
 	urlDoc, err := h.svc.GetTinyURL(ctx.Request().Context(), urlKey)
 	if err != nil {
-		h.l.Error("failed to get tiny url from db", zap.Error(err))
 		return ctx.JSON(http.StatusNotFound, &types.APIError{
 			Code:    types.NotFoundError,
 			Message: err.Error(),
@@ -105,10 +103,21 @@ func decodeRequest(ctx echo.Context) (*v0.GenerateURLRequest, error) {
 	genURLReq := new(v0.GenerateURLRequest)
 	err := json.NewDecoder(ctx.Request().Body).Decode(genURLReq)
 	if err != nil {
-		return nil, &types.APIError{
-			Code:    types.InputError,
-			Message: err.Error(),
-		}
+		return nil, err
+	}
+	if genURLReq.Url == "" {
+		return nil, types.ErrInvalidInput
+	}
+	parsedURL, err := url.Parse(genURLReq.Url)
+	if err != nil {
+		return nil, err
+	}
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return nil, types.ErrInvalidScheme
 	}
 	return genURLReq, nil
+}
+
+func stringPtr(s string) *string {
+	return &s
 }

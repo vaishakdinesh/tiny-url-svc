@@ -3,6 +3,8 @@ package url
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"github.com/redis/go-redis/v9"
 	"math/big"
 	"math/rand/v2"
 	"strconv"
@@ -17,7 +19,7 @@ import (
 )
 
 const (
-	defaultExpiryTime = time.Hour * 24 * 362 // 1 year
+	defaultExpiryTime = time.Hour * 24 * 365 // 1 year
 )
 
 type urlSVC struct {
@@ -29,7 +31,7 @@ type urlSVC struct {
 
 var base58Alphabet = []byte("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
 
-func NewTinyURLService(l *zap.Logger, r types.URLRepo, c types.CacheService) (types.URLService, error) {
+func NewTinyURLService(l *zap.Logger, r types.URLRepo, c types.CacheService) types.URLService {
 	svc := &urlSVC{
 		l:     l,
 		repo:  r,
@@ -38,37 +40,55 @@ func NewTinyURLService(l *zap.Logger, r types.URLRepo, c types.CacheService) (ty
 			Name:      "tiny_url_usage",
 			Namespace: "tiny_url_svc",
 		},
-			[]string{"url_key"}),
+			[]string{"url_key"}), // labels for cardinality
 	}
-	err := prometheus.Register(svc.counter)
-	if err != nil {
-		return nil, err
-	}
-	return svc, nil
+	return svc
 }
 
-func (u *urlSVC) GenerateTinyURL(ctx context.Context, longUrl string) (types.URLDocument, error) {
-	tinyURL := formTinyURL(longUrl)
+func (u *urlSVC) RegisterProm() error {
+	return prometheus.Register(u.counter)
+}
 
+func (u *urlSVC) GenerateTinyURL(ctx context.Context, longUrl string, liveForever bool) (types.URLDocument, error) {
+	tinyURL := formTinyURL(longUrl, liveForever)
 	err := u.repo.Put(ctx, tinyURL)
 	if err != nil {
 		u.l.Error("failed to store tiny url in db", zap.Error(err), zap.String("db-key", longUrl))
 		return types.URLDocument{}, err
 	}
 	u.l.Info("added url to db", zap.String(tinyURL.LongURL, strconv.FormatInt(tinyURL.Base10ID, 10)))
-	return tinyURL, u.cacheURLs(ctx, tinyURL)
+	return tinyURL, u.cacheTinyURL(ctx, tinyURL)
 }
 
 func (u *urlSVC) GetTinyURL(ctx context.Context, urlKey string) (types.URLDocument, error) {
+	var cacheAgain bool
 	u.counter.WithLabelValues(urlKey).Inc()
 	cachedURL, err := u.checkCacheForTinyURLDocument(ctx, urlKey)
 	if err != nil {
+		cacheAgain = errors.Is(err, redis.Nil)
 		u.l.Warn("failed to get cache for long url", zap.Error(err))
 	}
 	if cachedURL != nil {
+		if !cachedURL.LiveForever && cachedURL.ExpireTime.Before(time.Now()) {
+			if cErr := u.cache.Delete(ctx, urlKey); cErr != nil && !errors.Is(cErr, types.ErrCacheNotFound) {
+				u.l.Error("failed to delete cache", zap.Error(cErr), zap.String("db-key", urlKey))
+			}
+			return types.URLDocument{}, types.ErrDocumentNotFound
+		}
 		return *cachedURL, nil
 	}
-	return u.repo.GetDocument(ctx, urlKey)
+	doc, err := u.repo.GetDocument(ctx, urlKey)
+	if err != nil {
+		u.l.Error("failed to get tiny url", zap.Error(err), zap.String("db-key", urlKey))
+		return types.URLDocument{}, err
+	}
+	if cacheAgain {
+		err = u.cacheTinyURL(ctx, doc)
+		if err != nil {
+			u.l.Error("failed to cache tiny url", zap.Error(err), zap.String("cache-key", urlKey))
+		}
+	}
+	return doc, nil
 }
 
 func (u *urlSVC) DeleteTinyURL(ctx context.Context, urlKey string) error {
@@ -85,17 +105,13 @@ func (u *urlSVC) DeleteTinyURL(ctx context.Context, urlKey string) error {
 	return nil
 }
 
-func (u *urlSVC) cacheURLs(ctx context.Context, tinyURL types.URLDocument) error {
+func (u *urlSVC) cacheTinyURL(ctx context.Context, tinyURL types.URLDocument) error {
 	keyBytes, err := json.Marshal(tinyURL)
 	if err != nil {
 		return err
 	}
 	// cache generatedKey -> URLDocument
-	err = u.cache.Cache(ctx, tinyURL.URLKey, keyBytes)
-	if err != nil {
-		u.l.Error("failed to cache generated tiny url", zap.Error(err), zap.String("cache-key", tinyURL.URLKey))
-	}
-	return nil
+	return u.cache.Cache(ctx, tinyURL.URLKey, keyBytes)
 }
 
 func (u *urlSVC) checkCacheForTinyURLDocument(ctx context.Context, urlKey string) (*types.URLDocument, error) {
@@ -114,15 +130,20 @@ func (u *urlSVC) checkCacheForTinyURLDocument(ctx context.Context, urlKey string
 	return cachedURL, err
 }
 
-func formTinyURL(longURL string) types.URLDocument {
+func formTinyURL(longURL string, liveForever bool) types.URLDocument {
 	cTime := time.Now()
 	id := rand.Int64N(cTime.Unix())
 	base58String := encode(id)
 	urlObj := types.URLDocument{
-		Base10ID:   id,
-		LongURL:    longURL,
-		URLKey:     base58String,
-		ExpireTime: cTime.Add(defaultExpiryTime),
+		Base10ID: id,
+		LongURL:  longURL,
+		URLKey:   base58String,
+	}
+	if liveForever {
+		urlObj.LiveForever = true
+		urlObj.ExpireTime = cTime.Add(time.Hour * 24 * 365 * 250) // arbitrary 250 years
+	} else {
+		urlObj.ExpireTime = cTime.Add(defaultExpiryTime)
 	}
 	return urlObj
 }
