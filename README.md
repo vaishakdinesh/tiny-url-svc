@@ -61,6 +61,8 @@ Orchestration: docker compose
 ```
 ![screenshot](design/tinyurlservice.png)
 
+![screenshot](design/turlsvc-sequence.png)
+
 
 Requests are handled by the rest handlers injected with middleware for validation of input. The API request is validated
 and handed of to the service to generate the tiny url. The url is added to the data store and persisted. It is also added
