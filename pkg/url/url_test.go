@@ -2,153 +2,15 @@ package url
 
 import (
 	"context"
-	"errors"
-	"github.com/vaishakdinesh/tiny-url-svc/types"
+	"encoding/json"
 	"go.uber.org/zap"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/vaishakdinesh/tiny-url-svc/types"
 )
-
-type (
-	mockRepo struct {
-		data map[string]types.URLDocument
-	}
-	mockCache struct {
-		data map[string]string
-	}
-)
-
-const (
-	StoreFail      = "StoreFail"
-	GetFail        = "GetFail"
-	CacheStoreFail = "CacheStoreFail"
-	CacheGetFail   = "CacheGetFail"
-	Empty          = ""
-)
-
-func (mr *mockRepo) Put(_ context.Context, document any) error {
-	switch o := document.(type) {
-	case types.URLDocument:
-		switch {
-		case o.LongURL == StoreFail:
-			return errorCondition(StoreFail)
-		case o.LongURL == GetFail:
-			return errorCondition(GetFail)
-		case o.LongURL == Empty:
-			return errorCondition(Empty)
-		}
-		mr.data[o.URLKey] = o
-	}
-	return nil
-}
-
-func (mr *mockRepo) GetDocument(_ context.Context, urlKey string) (types.URLDocument, error) {
-	switch urlKey {
-	case StoreFail:
-		return types.URLDocument{}, errorCondition(StoreFail)
-	case GetFail:
-		return types.URLDocument{}, errorCondition(StoreFail)
-	case CacheStoreFail:
-		return types.URLDocument{}, errorCondition(StoreFail)
-	case CacheGetFail:
-		return types.URLDocument{}, errorCondition(StoreFail)
-	case Empty:
-		return types.URLDocument{}, errorCondition(Empty)
-	default:
-		doc, ok := mr.data[urlKey]
-		if !ok {
-			return types.URLDocument{}, types.ErrDocumentNotFound
-		}
-		return doc, nil
-	}
-}
-
-func (mr *mockRepo) Delete(_ context.Context, urlKey string) error {
-	switch urlKey {
-	case StoreFail:
-		return errorCondition(StoreFail)
-	case GetFail:
-		return errorCondition(StoreFail)
-	case CacheStoreFail:
-		return errorCondition(StoreFail)
-	case CacheGetFail:
-		return errorCondition(StoreFail)
-	case Empty:
-		return errorCondition(Empty)
-	default:
-		doc, ok := mr.data[urlKey]
-		if !ok {
-			return types.ErrDocumentNotFound
-		}
-		delete(mr.data, doc.URLKey)
-		return nil
-	}
-}
-
-func (mc *mockCache) Cache(_ context.Context, key string, val any) error {
-	switch key {
-	case StoreFail:
-		return errorCondition(StoreFail)
-	case GetFail:
-		return errorCondition(StoreFail)
-	case CacheStoreFail:
-		return errorCondition(StoreFail)
-	case CacheGetFail:
-		return errorCondition(StoreFail)
-	case Empty:
-		return errorCondition(Empty)
-	default:
-		switch o := val.(type) {
-		case string:
-			mc.data[key] = o
-		}
-		return nil
-	}
-}
-
-func (mc *mockCache) Delete(_ context.Context, key string) error {
-	switch key {
-	case StoreFail:
-		return errorCondition(StoreFail)
-	case GetFail:
-		return errorCondition(StoreFail)
-	case CacheStoreFail:
-		return errorCondition(StoreFail)
-	case CacheGetFail:
-		return errorCondition(StoreFail)
-	case Empty:
-		return errorCondition(Empty)
-	default:
-		_, ok := mc.data[key]
-		if !ok {
-			return types.ErrDocumentNotFound
-		}
-		delete(mc.data, key)
-		return nil
-	}
-}
-
-func (mc *mockCache) GetCachedValue(_ context.Context, key string) (string, error) {
-	switch key {
-	case StoreFail:
-		return "", errorCondition(StoreFail)
-	case GetFail:
-		return "", errorCondition(StoreFail)
-	case CacheStoreFail:
-		return "", errorCondition(StoreFail)
-	case CacheGetFail:
-		return "", errorCondition(StoreFail)
-	case Empty:
-		return "", errorCondition(Empty)
-	default:
-		val, ok := mc.data[key]
-		if !ok {
-			return "", nil
-		}
-		return val, nil
-	}
-}
 
 func TestEncoder(t *testing.T) {
 	testCases := map[string]struct {
@@ -182,18 +44,24 @@ func TestEncoder(t *testing.T) {
 
 func TestGenerateTinyURL(t *testing.T) {
 	ctx := context.Background()
+	a := assert.New(t)
+	l := zap.NewNop()
+	r := &types.MockRepo{Data: make(map[string]types.URLDocument)}
+	c := &types.MockCache{Data: make(map[string]string)}
 	testCases := map[string]struct {
 		lURL          string
+		liveForever   bool
 		expectedError bool
-		pre           func()
-		testRepoMap   map[string]types.URLDocument
-		testCache     map[string]string
 	}{
 		"gen url": {
 			lURL: "https://abc.io",
 		},
 		"gen url with query param ": {
 			lURL: "https://abc.efg.io?page=1&id=100",
+		},
+		"gen url live forever ": {
+			lURL:        "https://abc.efg.io?page=1&id=100",
+			liveForever: true,
 		},
 		"gen localhost url ": {
 			lURL: "http://localhost:9090/api/v1/foo?id=100",
@@ -203,27 +71,28 @@ func TestGenerateTinyURL(t *testing.T) {
 			expectedError: true,
 		},
 		"db put fail": {
-			lURL:          StoreFail,
+			lURL:          types.StoreFail,
 			expectedError: true,
 		},
 		"db get fail": {
-			lURL:          GetFail,
+			lURL:          types.GetFail,
 			expectedError: true,
 		},
 	}
-	a := assert.New(t)
-	l := zap.NewNop()
-	r := &mockRepo{data: make(map[string]types.URLDocument)}
-	c := &mockCache{data: make(map[string]string)}
+
 	svc := NewTinyURLService(l, r, c)
+	a.NotNil(svc)
+
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
-			tURL, err := svc.GenerateTinyURL(ctx, testCase.lURL)
+			tURL, err := svc.GenerateTinyURL(ctx, testCase.lURL, testCase.liveForever)
 			if !testCase.expectedError {
 				a.Nil(err)
 				a.NotEmpty(tURL.Base10ID)
 				a.NotEmpty(tURL.URLKey)
-				a.NotEmpty(tURL.ExpireTime)
+				if !testCase.liveForever {
+					a.NotEmpty(tURL.ExpireTime)
+				}
 			} else {
 				a.Error(err)
 			}
@@ -231,17 +100,148 @@ func TestGenerateTinyURL(t *testing.T) {
 	}
 }
 
-func errorCondition(e string) error {
-	switch e {
-	case StoreFail:
-		return errors.New("failed insert object")
-	case GetFail:
-		return errors.New("failed get object")
-	case CacheStoreFail:
-		return errors.New("failed to cache")
-	case CacheGetFail:
-		return errors.New("failed to get cache")
-	default:
-		return errors.New("something went wrong")
+func TestGetTinyURL(t *testing.T) {
+	ctx := context.Background()
+	a := assert.New(t)
+	l := zap.NewNop()
+	r := &types.MockRepo{Data: make(map[string]types.URLDocument)}
+	c := &types.MockCache{Data: make(map[string]string)}
+	testCases := map[string]struct {
+		urlKey      string
+		expectError bool
+		expectedErr error
+		pre         func(a *assert.Assertions)
+	}{
+		"failed to get tiny url": {
+			urlKey:      "JV5pY",
+			expectError: true,
+			expectedErr: types.ErrDocumentNotFound,
+		},
+		"get tiny url": {
+			urlKey: "342dLy",
+			pre: func(a *assert.Assertions) {
+				r.Data["342dLy"] = types.URLDocument{
+					Base10ID:   1029208386,
+					URLKey:     "342dLy",
+					LongURL:    "https://foo.com?id=1",
+					ExpireTime: time.Now(),
+				}
+			},
+		},
+		"get tiny url from cache": {
+			urlKey: "GdMuR",
+			pre: func(a *assert.Assertions) {
+				doc := types.URLDocument{
+					Base10ID:   1029208386,
+					URLKey:     "GdMuR",
+					LongURL:    "https://foo.com?id=1",
+					ExpireTime: time.Now().Add(time.Hour * 1),
+				}
+				bytes, err := json.Marshal(doc)
+				a.Nil(err)
+				c.Data["GdMuR"] = string(bytes)
+			},
+		},
+		"expired url, delete from cache": {
+			urlKey: "GdMuR",
+			pre: func(a *assert.Assertions) {
+				doc := types.URLDocument{
+					Base10ID:   1029208386,
+					URLKey:     "GdMuR",
+					LongURL:    "https://foo.com?id=1",
+					ExpireTime: time.Now(),
+				}
+				bytes, err := json.Marshal(doc)
+				a.Nil(err)
+				c.Data["GdMuR"] = string(bytes)
+			},
+			expectError: true,
+			expectedErr: types.ErrDocumentNotFound,
+		},
+	}
+
+	svc := NewTinyURLService(l, r, c)
+	a.NotNil(svc)
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			if testCase.pre != nil {
+				testCase.pre(a)
+			}
+			tURL, err := svc.GetTinyURL(ctx, testCase.urlKey)
+			if !testCase.expectError {
+				a.Nil(err)
+				a.NotEmpty(tURL.Base10ID)
+				a.NotEmpty(tURL.URLKey)
+				a.NotEmpty(tURL.ExpireTime)
+			} else {
+				a.Error(err)
+				a.Equal(err, testCase.expectedErr)
+			}
+		})
+	}
+}
+
+func TestDeleteTinyURL(t *testing.T) {
+	ctx := context.Background()
+	a := assert.New(t)
+	l := zap.NewNop()
+	r := &types.MockRepo{Data: make(map[string]types.URLDocument)}
+	c := &types.MockCache{Data: make(map[string]string)}
+	testCases := map[string]struct {
+		urlKey        string
+		expectedError bool
+		pre           func(a *assert.Assertions)
+	}{
+		"failed to get tiny url": {
+			urlKey:        "VpPmN",
+			expectedError: true,
+		},
+		"get tiny url": {
+			urlKey: "CFght",
+			pre: func(a *assert.Assertions) {
+				r.Data["CFght"] = types.URLDocument{
+					Base10ID:   1029208386,
+					URLKey:     "CFght",
+					LongURL:    "https://foo.com?id=1",
+					ExpireTime: time.Now(),
+				}
+			},
+		},
+		"delete tiny url from cache and db": {
+			urlKey: "Yc651",
+			pre: func(a *assert.Assertions) {
+				doc := types.URLDocument{
+					Base10ID:   1029208386,
+					URLKey:     "Yc651",
+					LongURL:    "https://foo.com?id=1",
+					ExpireTime: time.Now(),
+				}
+				bytes, err := json.Marshal(doc)
+				a.Nil(err)
+				c.Data["Yc651"] = string(bytes)
+				r.Data["Yc651"] = doc
+			},
+		},
+		"cache get fail": {
+			urlKey:        types.CacheGetFail,
+			expectedError: true,
+		},
+	}
+
+	svc := NewTinyURLService(l, r, c)
+	a.NotNil(svc)
+
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			if testCase.pre != nil {
+				testCase.pre(a)
+			}
+			err := svc.DeleteTinyURL(ctx, testCase.urlKey)
+			if !testCase.expectedError {
+				a.Nil(err)
+			} else {
+				a.Error(err)
+			}
+		})
 	}
 }
