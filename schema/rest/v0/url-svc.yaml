@@ -70,16 +70,21 @@ components:
       type: object
       required:
         - url
+        - liveForever
       properties:
         url:
           type: string
           example: https://google.com
           minLength: 3
+        liveForever:
+          type: boolean
+          description: boolean indicating whether the generated url will not expire. Not required as the API will default to false.
+          default: false
+          example: false
     GenerateURLResponse:
       type: object
       required:
         - generatedTinyURL
-        - expireTime
       properties:
         generatedTinyURL:
           type: string
