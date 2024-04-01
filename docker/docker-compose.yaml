@@ -35,13 +35,24 @@ services:
     ports:
       - "6379:6379"
     environment:
-      REDIS_ARGS: "--requirepass tsvcPassword --user tsvc on >tsvcPassword ~* allcommands --user default off nopass nocommands"
+      REDIS_ARGS: "--requirepass tsvcPassword"
     healthcheck:
         test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
     volumes:
         - redis_data:/data
     networks:
       - tiny-url-network
+  prometheus:
+    image: prom/prometheus:v2.51.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - tiny-url-network
+    restart: always
+    depends_on:
+      - tiny-url-svc
 networks:
   tiny-url-network:
     driver: bridge

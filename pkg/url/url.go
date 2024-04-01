@@ -11,6 +11,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/vaishakdinesh/tiny-url-svc/types"
 )
 
@@ -19,19 +21,30 @@ const (
 )
 
 type urlSVC struct {
-	l     *zap.Logger
-	repo  types.URLRepo
-	cache types.CacheService
+	l       *zap.Logger
+	repo    types.URLRepo
+	cache   types.CacheService
+	counter *prometheus.CounterVec
 }
 
 var base58Alphabet = []byte("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
 
-func NewTinyURLService(l *zap.Logger, r types.URLRepo, c types.CacheService) types.URLService {
-	return &urlSVC{
+func NewTinyURLService(l *zap.Logger, r types.URLRepo, c types.CacheService) (types.URLService, error) {
+	svc := &urlSVC{
 		l:     l,
 		repo:  r,
 		cache: c,
+		counter: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name:      "tiny_url_usage",
+			Namespace: "tiny_url_svc",
+		},
+			[]string{"url_key"}),
 	}
+	err := prometheus.Register(svc.counter)
+	if err != nil {
+		return nil, err
+	}
+	return svc, nil
 }
 
 func (u *urlSVC) GenerateTinyURL(ctx context.Context, longUrl string) (types.URLDocument, error) {
@@ -47,6 +60,7 @@ func (u *urlSVC) GenerateTinyURL(ctx context.Context, longUrl string) (types.URL
 }
 
 func (u *urlSVC) GetTinyURL(ctx context.Context, urlKey string) (types.URLDocument, error) {
+	u.counter.WithLabelValues(urlKey).Inc()
 	cachedURL, err := u.checkCacheForTinyURLDocument(ctx, urlKey)
 	if err != nil {
 		u.l.Warn("failed to get cache for long url", zap.Error(err))
@@ -67,6 +81,7 @@ func (u *urlSVC) DeleteTinyURL(ctx context.Context, urlKey string) error {
 	if err != nil {
 		u.l.Warn("failed to delete from cache", zap.Error(err), zap.String("cache-key", urlKey))
 	}
+	u.counter.DeleteLabelValues(urlKey)
 	return nil
 }
 

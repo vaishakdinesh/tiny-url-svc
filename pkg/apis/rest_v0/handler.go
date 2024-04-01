@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+
 	"github.com/vaishakdinesh/tiny-url-svc/types"
 	v0 "github.com/vaishakdinesh/tiny-url-svc/types/api/rest/v0"
 )

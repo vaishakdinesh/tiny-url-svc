@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"github.com/vaishakdinesh/tiny-url-svc/pkg/cache"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,9 +12,11 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/labstack/echo/v4"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/vaishakdinesh/tiny-url-svc/pkg/apis/rest_v0"
+	"github.com/vaishakdinesh/tiny-url-svc/pkg/cache"
 	"github.com/vaishakdinesh/tiny-url-svc/pkg/db"
 	"github.com/vaishakdinesh/tiny-url-svc/pkg/url"
 	"github.com/vaishakdinesh/tiny-url-svc/types"
@@ -44,13 +45,11 @@ func Run() {
 		}
 	}()
 
-	// TODO:: from config
-	opt, err := redis.ParseURL("redis://tsvc:tsvcPassword@redis:6379/0")
-	if err != nil {
-		logger.Fatal("failed parse redis url", zap.Error(err))
-	}
-
-	redisClient := redis.NewClient(opt)
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     "redis:6379",
+		DB:       0,
+		Password: "tsvcPassword",
+	})
 	defer func() {
 		if err = redisClient.Close(); err != nil {
 			logger.Fatal("failed to close redis cache", zap.Error(err))
@@ -71,10 +70,8 @@ func Run() {
 	}
 
 	wg := new(sync.WaitGroup)
-
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
 	defer cancel()
-
 	wg.Add(1)
 	server.Run(ctx, wg)
 	wg.Wait()
@@ -84,6 +81,7 @@ func newServer() (*types.Server, error) {
 	s := &types.Server{
 		Echo: echo.New(),
 	}
+	s.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	s.GET("/healthy", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, &health{Status: "healthy"})
 	})
@@ -92,7 +90,10 @@ func newServer() (*types.Server, error) {
 
 func initHandlers(l *zap.Logger, c *mongo.Client, r *redis.Client) ([]types.Registerer, error) {
 	cacheSvc := cache.NewCacheService(r)
-	urlSvc := url.NewTinyURLService(l, db.NewURLRepo(c), cacheSvc)
+	urlSvc, err := url.NewTinyURLService(l, db.NewURLRepo(c), cacheSvc)
+	if err != nil {
+		return nil, err
+	}
 	tinyURLV0, err := rest_v0.NewHandler(l, urlSvc)
 	if err != nil {
 		return nil, err

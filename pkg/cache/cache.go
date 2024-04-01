@@ -9,7 +9,7 @@ import (
 	"github.com/vaishakdinesh/tiny-url-svc/types"
 )
 
-const cacheExpire = time.Second * 5
+const cacheExpire = time.Hour * 24 * 365
 
 type cacheService struct {
 	c *redis.Client
