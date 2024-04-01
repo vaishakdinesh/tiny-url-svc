@@ -1,4 +1,4 @@
-.PHONY: tidy build up down image vendor
+.PHONY: tidy build up down image vendor test coverage
 
 MONGODB_VERSION		:= 6.0-ubi8
 REDIS_VERSION       := 7.2.0-v9
@@ -51,3 +51,10 @@ image:
 
 vendor:
 	go mod vendor
+
+test:
+	go test ./...
+
+coverage:
+	go test -cover ./... -coverprofile=c.out
+	go tool cover -html="c.out"
