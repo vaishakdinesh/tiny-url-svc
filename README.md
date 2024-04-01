@@ -86,6 +86,7 @@ All the schemas for requests, responses, paths, and query params are documented 
 Software Versions:
 1. Go version: 1.22.1
 2. Docker: 24.0.6
+
    a. This version of Docker should have `compose` with it. Older versions use `docker-compose`
 
 
