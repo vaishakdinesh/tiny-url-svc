@@ -11,13 +11,15 @@ type APIError struct {
 
 // GenerateURLRequest defines model for GenerateURLRequest.
 type GenerateURLRequest struct {
-	Url string `json:"url"`
+	// LiveForever boolean indicating whether the generated url will not expire. Not required as the API will default to false.
+	LiveForever bool   `json:"liveForever"`
+	Url         string `json:"url"`
 }
 
 // GenerateURLResponse defines model for GenerateURLResponse.
 type GenerateURLResponse struct {
-	ExpireTime       string `json:"expireTime"`
-	GeneratedTinyURL string `json:"generatedTinyURL"`
+	ExpireTime       *string `json:"expireTime,omitempty"`
+	GeneratedTinyURL string  `json:"generatedTinyURL"`
 }
 
 // GenerateURLJSONRequestBody defines body for GenerateURL for application/json ContentType.

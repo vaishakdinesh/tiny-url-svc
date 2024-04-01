@@ -12,18 +12,24 @@ const (
 	urlFormat = "%s://%s/tinyurlsvc/%s"
 )
 
+type Metrics interface {
+	RegisterProm() error
+}
+
 // URLService represents domain service abstraction where biz logic resides.
 type URLService interface {
-	GenerateTinyURL(ctx context.Context, longUrl string) (URLDocument, error)
+	Metrics
+	GenerateTinyURL(ctx context.Context, longUrl string, liveForever bool) (URLDocument, error)
 	GetTinyURL(ctx context.Context, urlKey string) (URLDocument, error)
 	DeleteTinyURL(ctx context.Context, urlKey string) error
 }
 
 type URLDocument struct {
-	Base10ID   int64     `bson:"base_10_id" json:"Base10ID"`
-	URLKey     string    `bson:"url_key" json:"URLKey"`
-	LongURL    string    `bson:"long_url" json:"LongURL"`
-	ExpireTime time.Time `bson:"expire_time" json:"ExpireTime"`
+	Base10ID    int64     `bson:"base_10_id"`
+	URLKey      string    `bson:"url_key"`
+	LongURL     string    `bson:"long_url"`
+	ExpireTime  time.Time `bson:"expire_time"`
+	LiveForever bool      `bson:"live_forever"`
 }
 
 func (u URLDocument) ToURL(ctx echo.Context) string {
