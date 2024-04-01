@@ -18,8 +18,6 @@ import (
 	v0 "github.com/vaishakdinesh/tiny-url-svc/types/api/rest/v0"
 )
 
-var apiURL = "/tinyurlsvc"
-
 func TestGenerateURL(t *testing.T) {
 	a := assert.New(t)
 	l := zap.NewNop()

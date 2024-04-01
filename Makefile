@@ -1,4 +1,4 @@
-.PHONY: tidy build up down image vendor test coverage
+.PHONY: tidy build up down image vendor test coverage down-legacy up-legacy
 
 MONGODB_VERSION		:= 6.0-ubi8
 REDIS_VERSION       := 7.2.0-v9
@@ -40,11 +40,20 @@ tidy:
 build:
 	go build .
 
-up: vendor image
+dev-up: vendor image
 	docker compose -f docker/docker-compose.yaml up -d
+
+up: image
+	docker compose -f docker/docker-compose.yaml up -d
+
+up-legacy: image
+	docker-compose -f docker/docker-compose.yaml up -d
 
 down:
 	docker compose -f docker/docker-compose.yaml down -v
+
+down-legacy:
+	docker-compose -f docker/docker-compose.yaml down -v
 
 image:
 	docker build -f docker/Dockerfile -t tiny-url-svc:${BRANCH} .

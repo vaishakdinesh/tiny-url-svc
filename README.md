@@ -5,7 +5,6 @@ Cloudflare take-home assignment. The service offers the following features:
 - get tiny url
   - redirects the user to the long url represented by the tiny url
 - delete a tiny url
-  - deletes a tiny url
 
 A Tiny URL Request is represented by the following
 ```
@@ -14,7 +13,7 @@ A Tiny URL Request is represented by the following
     "liveForever": 
 }
 ```
-The input takes the long url for which a tiny url is generated.
+The input takes the long url for which a tiny url is generated. `liveForever` is optional, defaults to false.
 Authentication and Authorization were not scoped for this project. Updating flows were also not considered. 
  
 
@@ -73,7 +72,7 @@ to the cache for quick lookups.
 3. mongodb is used for the db because of the type of data we are storing and scalability.
 4. redis cache for quick look-ups and can be horizontally scaled.
 5. prometheus as a metrics aggregator which scrapes the metrics for application
-6. For the tiny url, we generate a unique base10 integer which is then base58 encoded. base58 was chosen because it has better readability compared to base64 and offers a better user experience.
+6. For the tiny url, we generate a unique base10 integer which is then base58 encoded. base58 was chosen because it has better readability, less ambiguity compared to base64 and offers a better user experience.
 
 
 All the schemas for requests, responses, paths, and query params are documented using an OpenAPI Specification YAML.
@@ -84,14 +83,33 @@ All the schemas for requests, responses, paths, and query params are documented 
 2. To run the unit test you will need go installed.
 3. Clone or download the source code and `cd` into the directory.
 
+Software Versions:
+1. Go version: 1.22.1
+2. Docker: 24.0.6
+   a. This version of Docker should have `compose` with it. Older versions use `docker-compose`
+
+
 To start the services
 ```
 make up
+```
+If this command returns an error due to `compose` not being a docker command you can run
+```
+make up-legacy
 ```
 
 To stop the services
 ```
 make down
+```
+If this command returns an error due to `compose` not being a docker command you can run
+```
+make down-legacy
+```
+
+If vendor directory is out of sync. This shouldn't happen unless the go.mod is changed.
+```
+make tidy vendor 
 ```
 
 ### Testing

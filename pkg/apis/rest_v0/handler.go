@@ -13,6 +13,8 @@ import (
 	v0 "github.com/vaishakdinesh/tiny-url-svc/types/api/rest/v0"
 )
 
+var apiURL = "/tinyurlsvc"
+
 type handler struct {
 	schema types.OpenAPISchema
 	svc    types.URLService
@@ -38,11 +40,13 @@ func NewHandler(logger *zap.Logger, s types.URLService) (types.Handler, error) {
 }
 
 func (h *handler) Register(s *types.Server) {
-	sg := s.Group("/tinyurlsvc")
+	sg := s.Group(apiURL)
 	sg.Use(h.schema.ValidationMiddleware())
 	v0.RegisterHandlers(sg, h)
 }
 
+// GenerateURL Generate a tiny url
+// (POST /tinyurlsvc/generate)
 func (h *handler) GenerateURL(ctx echo.Context) error {
 	genURLReq, err := decodeRequest(ctx)
 	if err != nil {
@@ -66,6 +70,8 @@ func (h *handler) GenerateURL(ctx echo.Context) error {
 	return ctx.JSON(http.StatusCreated, response)
 }
 
+// GetURL redirects to long url.
+// (GET /tinyurlsvc/{urlKey})
 func (h *handler) GetURL(ctx echo.Context, urlKey string) error {
 	urlDoc, err := h.svc.GetTinyURL(ctx.Request().Context(), urlKey)
 	if err != nil {
@@ -78,6 +84,8 @@ func (h *handler) GetURL(ctx echo.Context, urlKey string) error {
 	return nil
 }
 
+// DeleteURL Deletes a tiny url
+// (DELETE /tinyurlsvc/{urlKey})
 func (h *handler) DeleteURL(ctx echo.Context, urlKey string) error {
 	err := h.svc.DeleteTinyURL(ctx.Request().Context(), urlKey)
 	if err != nil {

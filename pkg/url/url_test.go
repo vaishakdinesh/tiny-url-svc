@@ -17,27 +17,47 @@ func TestEncoder(t *testing.T) {
 		input    int64
 		expected string
 	}{
-		"encode 2468135791013": {
+		"base58Encode 2468135791013": {
 			input:    2468135791013,
 			expected: "27qMi57J",
 		},
-		"encode 7489135791013": {
+		"base58Encode 7489135791013": {
 			input:    7489135791013,
 			expected: "4PjAHW6Y",
 		},
-		"encode 5638910482": {
+		"base58Encode 5638910482": {
 			input:    5638910482,
 			expected: "9bHtdX",
 		},
-		"encode 00000000000": {
+		"base58Encode 87452840931": {
 			input:    87452840931,
 			expected: "3JEufoG",
+		},
+		"base58Encode 11": {
+			input:    11,
+			expected: "C",
+		},
+		"base58Encode 10": {
+			input:    10,
+			expected: "B",
+		},
+		"base58Encode 1": {
+			input:    1,
+			expected: "2",
+		},
+		"base58Encode 0": {
+			input:    0,
+			expected: "1",
+		},
+		"negative expect empty": {
+			input:    -1,
+			expected: "",
 		},
 	}
 	a := assert.New(t)
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
-			a.Equal(testCase.expected, encode(testCase.input))
+			a.Equal(testCase.expected, base58Encode(testCase.input))
 		})
 	}
 }

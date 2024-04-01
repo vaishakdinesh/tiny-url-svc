@@ -9,7 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// TODO:: config
+// TODO:: config. Not scoped for simplicity
 func NewDB(ctx context.Context, l *zap.Logger) (*mongo.Client, error) {
 	return mongo.Connect(ctx, options.Client().ApplyURI("mongodb://root:root@mongodb:27017"))
 }

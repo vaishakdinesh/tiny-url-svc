@@ -18,10 +18,12 @@ type repo struct {
 	client *mongo.Client
 }
 
+// NewURLRepo return a new url repo
 func NewURLRepo(c *mongo.Client) types.URLRepo {
 	return &repo{client: c}
 }
 
+// Put stores the document in the datastore
 func (r *repo) Put(ctx context.Context, document any) error {
 	collection := r.collection()
 	switch o := document.(type) {
@@ -46,6 +48,7 @@ func (r *repo) Put(ctx context.Context, document any) error {
 	return nil
 }
 
+// GetDocument retrieves a document based on the urlKey
 func (r *repo) GetDocument(ctx context.Context, urlKey string) (types.URLDocument, error) {
 	urlDoc := &types.URLDocument{}
 	collection := r.collection()
@@ -60,6 +63,7 @@ func (r *repo) GetDocument(ctx context.Context, urlKey string) (types.URLDocumen
 	return *urlDoc, nil
 }
 
+// Delete deletes a document based the urlKey
 func (r *repo) Delete(ctx context.Context, urlKey string) error {
 	collection := r.collection()
 	filter := bson.M{"url_key": urlKey}

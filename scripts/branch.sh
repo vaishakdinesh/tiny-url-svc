@@ -13,5 +13,5 @@ if git rev-parse --git-dir > /dev/null 2>&1; then
       exit 0
   fi
 else
-  echo "0.0"
+  echo "main"
 fi

@@ -29,8 +29,9 @@ type urlSVC struct {
 	counter *prometheus.CounterVec
 }
 
-var base58Alphabet = []byte("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+var base58Chars = []byte("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
 
+// NewTinyURLService return a new url service
 func NewTinyURLService(l *zap.Logger, r types.URLRepo, c types.CacheService) types.URLService {
 	svc := &urlSVC{
 		l:     l,
@@ -45,21 +46,27 @@ func NewTinyURLService(l *zap.Logger, r types.URLRepo, c types.CacheService) typ
 	return svc
 }
 
+// RegisterProm registers the metric vector with prometheus
 func (u *urlSVC) RegisterProm() error {
 	return prometheus.Register(u.counter)
 }
 
-func (u *urlSVC) GenerateTinyURL(ctx context.Context, longUrl string, liveForever bool) (types.URLDocument, error) {
-	tinyURL := formTinyURL(longUrl, liveForever)
-	err := u.repo.Put(ctx, tinyURL)
+// GenerateTinyURL generates a tiny url from the given longUrl
+func (u *urlSVC) GenerateTinyURL(ctx context.Context, longURL string, liveForever bool) (types.URLDocument, error) {
+	tinyURL, err := formTinyURL(longURL, liveForever)
 	if err != nil {
-		u.l.Error("failed to store tiny url in db", zap.Error(err), zap.String("db-key", longUrl))
+		return types.URLDocument{}, err
+	}
+	err = u.repo.Put(ctx, tinyURL)
+	if err != nil {
+		u.l.Error("failed to store tiny url in db", zap.Error(err), zap.String("db-key", longURL))
 		return types.URLDocument{}, err
 	}
 	u.l.Info("added url to db", zap.String(tinyURL.LongURL, strconv.FormatInt(tinyURL.Base10ID, 10)))
 	return tinyURL, u.cacheTinyURL(ctx, tinyURL)
 }
 
+// GetTinyURL retrieves a tiny url
 func (u *urlSVC) GetTinyURL(ctx context.Context, urlKey string) (types.URLDocument, error) {
 	var cacheAgain bool
 	u.counter.WithLabelValues(urlKey).Inc()
@@ -69,6 +76,7 @@ func (u *urlSVC) GetTinyURL(ctx context.Context, urlKey string) (types.URLDocume
 		u.l.Warn("failed to get cache for long url", zap.Error(err))
 	}
 	if cachedURL != nil {
+		// Check whether the cached tiny url expired
 		if !cachedURL.LiveForever && cachedURL.ExpireTime.Before(time.Now()) {
 			if cErr := u.cache.Delete(ctx, urlKey); cErr != nil && !errors.Is(cErr, types.ErrCacheNotFound) {
 				u.l.Error("failed to delete cache", zap.Error(cErr), zap.String("db-key", urlKey))
@@ -91,6 +99,7 @@ func (u *urlSVC) GetTinyURL(ctx context.Context, urlKey string) (types.URLDocume
 	return doc, nil
 }
 
+// DeleteTinyURL deletes a tiny url, the cached entries and metrics associated with it
 func (u *urlSVC) DeleteTinyURL(ctx context.Context, urlKey string) error {
 	err := u.repo.Delete(ctx, urlKey)
 	if err != nil {
@@ -130,10 +139,14 @@ func (u *urlSVC) checkCacheForTinyURLDocument(ctx context.Context, urlKey string
 	return cachedURL, err
 }
 
-func formTinyURL(longURL string, liveForever bool) types.URLDocument {
+func formTinyURL(longURL string, liveForever bool) (types.URLDocument, error) {
 	cTime := time.Now()
 	id := rand.Int64N(cTime.Unix())
-	base58String := encode(id)
+	base58String := base58Encode(id)
+	// Should not happen
+	if base58String == "" {
+		return types.URLDocument{}, types.ErrInvalidInput
+	}
 	urlObj := types.URLDocument{
 		Base10ID: id,
 		LongURL:  longURL,
@@ -145,11 +158,17 @@ func formTinyURL(longURL string, liveForever bool) types.URLDocument {
 	} else {
 		urlObj.ExpireTime = cTime.Add(defaultExpiryTime)
 	}
-	return urlObj
+	return urlObj, nil
 }
 
-func encode(num int64) string {
-	bigNum := big.NewInt(num)
+func base58Encode(n int64) string {
+	if n < 0 {
+		return ""
+	}
+	if n == 0 {
+		return "1"
+	}
+	bigNum := big.NewInt(n)
 	var result strings.Builder
 
 	zero := big.NewInt(0)
@@ -157,7 +176,7 @@ func encode(num int64) string {
 	for bigNum.Cmp(zero) > 0 {
 		mod := new(big.Int)
 		bigNum.DivMod(bigNum, base, mod)
-		result.WriteByte(base58Alphabet[mod.Int64()])
+		result.WriteByte(base58Chars[mod.Int64()])
 	}
 	bytes := []byte(result.String())
 	for i, j := 0, len(bytes)-1; i < j; i, j = i+1, j-1 {

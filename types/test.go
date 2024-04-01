@@ -6,9 +6,11 @@ import (
 )
 
 type (
+	// MockRepo mocks the db
 	MockRepo struct {
 		Data map[string]URLDocument
 	}
+	// MockCache mocks the cache
 	MockCache struct {
 		Data map[string]string
 	}
