@@ -1,5 +1,5 @@
 # Introduction
-Cloudflare take-home assignment. The service offers the following features:
+The service offers the following features:
 - Generate a tiny URL
     - creates a tiny url for the input long url 
 - get tiny url
